@@ -1,6 +1,7 @@
 from Utils import Stack
 
-INTEGER, PLUS, MINUS, MUL, DIV, EOF = 'INTEGER', 'PLUS', 'MINUS','MUL', 'DIV', 'EOF'
+INTEGER, PLUS, MINUS, MUL, DIV, EOF,LEFTBRACKET, RIGHTBRACKET \
+    = 'INTEGER', 'PLUS', 'MINUS','MUL', 'DIV', 'EOF', 'LEFTBRACKET', 'RIGHTBRACKET'
 
 # 每个词素
 class Token(object):
@@ -60,6 +61,12 @@ class Lexer(object):
             if self.current_char == '/':
                 self.advance()
                 return Token(DIV, '/')
+            if self.current_char == '(':
+                self.advance()
+                return Token(LEFTBRACKET,'(')
+            if self.current_char == ')':
+                self.advance()
+                return Token(RIGHTBRACKET,')')
         else:
             return Token(EOF,None)
 
@@ -87,37 +94,56 @@ class Interpreter(object):
         self.eat(INTEGER)
         return token.value
 
-    def expr(self):
-        self.numberStack.push(self.factor())
-        while self.current_token.type in (PLUS, MINUS, MUL, DIV):
-            token = self.current_token
-            if token.type == PLUS:
-                self.eat(PLUS)
-                self.operatorStack.push(PLUS)
-                self.numberStack.push(self.factor())
-            elif token.type == MINUS:
-                self.eat(MINUS)
-                self.operatorStack.push(MINUS)
-                self.numberStack.push(self.factor())
-            elif token.type == MUL:
+    def term(self):
+        res = self.factor()
+        while self.current_token.type in (MUL,DIV):
+            if self.current_token.type == MUL :
                 self.eat(MUL)
-                tempNumber = self.numberStack.pop()
-                tempNumber *= self.factor()
-                self.numberStack.push(tempNumber)
-            elif token.type == DIV:
+                res*=self.bracket()
+            elif self.current_token.type == DIV :
                 self.eat(DIV)
-                tempNumber = self.numberStack.pop()
-                tempNumber /= self.factor()
-                self.numberStack.push(tempNumber)
-        print("Number Stack: ",self.numberStack)
-        print("Operator Stack: ",self.operatorStack)
-        result = self.numberStack.pop()
-        while self.numberStack.size!=0:
-            operator = self.operatorStack.pop()
-            if operator == PLUS :
-                result+=self.numberStack.pop()
-            if operator == MINUS:
-                result=self.numberStack.pop() - result
+                res/=self.bracket()
+        return res
+
+    def bracket(self):
+        res = 0;
+        if self.current_token.type == LEFTBRACKET:
+            self.eat(LEFTBRACKET)
+            res = self.term()
+            while self.current_token.type != RIGHTBRACKET and self.current_token.type in (PLUS,MINUS):
+                if self.current_token.type == PLUS:
+                    self.eat(PLUS)
+                    res += self.term()
+                elif self.current_token.type == MINUS:
+                    self.eat(MINUS)
+                    res -= self.term()
+            self.eat(RIGHTBRACKET)
+        else:
+            res = self.term()
+
+        return res
+
+
+    def expr(self):
+        result = self.bracket();
+        print("pos = ",self.lexer.pos)
+        print("char = ",self.lexer.text[self.lexer.pos])
+        print("current_token",self.current_token)
+        print("1: ",result)
+        while self.current_token.type in (PLUS,MINUS,MUL,DIV):
+            if self.current_token.type == PLUS:
+                self.eat(PLUS)
+                result += self.bracket()
+            elif self.current_token.type == MINUS:
+                self.eat(MINUS)
+                result -= self.bracket()
+            elif self.current_token.type == MUL:
+                self.eat(MUL)
+                result *= self.bracket()
+            elif self.current_token.type == DIV:
+                self.eat(DIV)
+                result /= self.bracket()
+
         return result
 
 def main():
